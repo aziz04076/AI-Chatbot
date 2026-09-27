@@ -1,0 +1,113 @@
+version: '3.8'
+
+services:
+  # 1. React + Three.js Glassmorphism Frontend
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    container_name: nexus-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - nexus-network
+
+  # 2. FastAPI Async Backend
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: nexus-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - PROJECT_NAME=NexusAI Enterprise Cloud Assistant
+      - DATABASE_URL=postgresql+asyncpg://nexus_user:nexus_secret@postgres:5432/nexus_db
+      - REDIS_URL=redis://redis:6379/0
+      - INFERENCE_MODE=mock # Switch to 'vllm' or 'openai' in production
+      - LLM_API_BASE=http://vllm:8000/v1
+      - LLM_API_KEY=nexus_cluster_token
+      - DEFAULT_MODEL=nexus-llama3-8b-v1
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ../backend/data:/app/data
+    restart: unless-stopped
+    networks:
+      - nexus-network
+
+  # 3. Redis Cache & Token-Bucket Rate Limiter
+  redis:
+    image: redis:7-alpine
+    container_name: nexus-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - nexus-network
+
+  # 4. PostgreSQL Relational Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: nexus-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=nexus_user
+      - POSTGRES_PASSWORD=nexus_secret
+      - POSTGRES_DB=nexus_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nexus_user -d nexus_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - nexus-network
+
+  # 5. Optional vLLM High-Throughput Model Server (Activate on Cloud GPU nodes)
+  vllm:
+    image: vllm/vllm-openai:latest
+    container_name: nexus-vllm
+    profiles: ["gpu"] # Enable via: docker-compose --profile gpu up
+    ports:
+      - "8001:8000"
+    environment:
+      - HUGGING_FACE_HUB_TOKEN=${HF_TOKEN}
+    command: >
+      --model meta-llama/Meta-Llama-3-8B-Instruct
+      --gpu-memory-utilization 0.90
+      --max-model-len 4096
+      --port 8000
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    networks:
+      - nexus-network
+
+networks:
+  nexus-network:
+    driver: bridge
+
+volumes:
+  redis_data:
+  postgres_data:
