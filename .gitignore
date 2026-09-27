@@ -37,6 +37,11 @@ yarn-error.log*
 .env.local
 .env.*.local
 
+# Backup archives
+*.zip
+*.tar.gz
+*.tgz
+
 # OS system files
 .DS_Store
 Thumbs.db
