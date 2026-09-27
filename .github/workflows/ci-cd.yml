@@ -29,7 +29,13 @@ jobs:
         env:
           PYTHONPATH: backend
         run: |
-          python -m pytest backend/tests -v --tb=short --junitxml=pytest-report.xml
+          python -m pytest backend/tests -v --tb=short 2>&1 | tee pytest_output.txt || {
+            echo "### Pytest Failure Details" >> $GITHUB_STEP_SUMMARY
+            echo '```text' >> $GITHUB_STEP_SUMMARY
+            tail -n 60 pytest_output.txt >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            exit 1
+          }
 
       - name: Verify LoRA Training Dry Run
         run: |
