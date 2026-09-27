@@ -80,9 +80,8 @@ async def test_column_level_encryption_at_rest_in_sqlite():
         db.add(msg)
         await db.commit()
 
-    # 2. Inspect raw SQLite table directly bypassing ORM
-    # Extract path to sqlite file
-    db_path = settings.DATABASE_URL.replace("sqlite+aiosqlite:///", "")
+    # Extract path to sqlite file cleanly on all platforms
+    db_path = settings.DATABASE_URL.split("sqlite+aiosqlite:///")[-1]
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
     cursor.execute("SELECT content FROM messages WHERE id = ?", (msg_id,))
