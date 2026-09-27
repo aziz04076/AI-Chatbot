@@ -2,6 +2,7 @@ import pytest
 import time
 from app.core.telemetry import Span, Trace, Tracer, tracer
 from httpx import AsyncClient, ASGITransport
+from app.core.database import init_db
 from app.main import app
 
 def test_span_lifecycle():
@@ -74,6 +75,7 @@ def test_span_error_handling():
 
 @pytest.mark.asyncio
 async def test_http_chat_distributed_tracing():
+    await init_db()
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         response = await ac.post("/api/v1/chat", json={

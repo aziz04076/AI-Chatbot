@@ -3,6 +3,7 @@ from app.services.eval_service import EvaluationService, eval_service
 from app.schemas.eval import BenchmarkQuery, EvalBenchmarkReport
 from httpx import AsyncClient, ASGITransport
 from app.core.security import create_access_token
+from app.core.database import init_db
 from app.main import app
 
 def test_compute_percentiles():
@@ -54,6 +55,7 @@ def test_run_benchmark():
 @pytest.mark.asyncio
 async def test_analytics_eval_endpoints():
     """Verifies GET /api/v1/analytics/eval and POST /api/v1/analytics/eval/run."""
+    await init_db()
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         # GET eval report

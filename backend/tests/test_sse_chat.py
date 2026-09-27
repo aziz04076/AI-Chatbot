@@ -2,10 +2,12 @@ import json
 import pytest
 from httpx import AsyncClient, ASGITransport
 from app.main import app
+from app.core.database import init_db
 
 @pytest.mark.asyncio
 async def test_sse_chat_streaming_basic():
     """Verifies that POST /api/v1/chat/sse/{session_id} streams valid Server-Sent Events."""
+    await init_db()
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         req_body = {
@@ -47,6 +49,7 @@ async def test_sse_chat_streaming_basic():
 @pytest.mark.asyncio
 async def test_sse_chat_with_tools():
     """Verifies tool call and tool result events in SSE stream."""
+    await init_db()
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         req_body = {
@@ -74,6 +77,7 @@ async def test_sse_chat_with_tools():
 @pytest.mark.asyncio
 async def test_sse_guardrails_safety_block():
     """Verifies that unsafe content yields an error event in SSE stream."""
+    await init_db()
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         req_body = {

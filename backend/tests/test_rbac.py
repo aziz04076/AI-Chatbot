@@ -10,6 +10,7 @@ from app.core.security import create_access_token
 from app.services.agent_service import agent_orchestrator
 from app.services.multi_agent import multi_agent_orchestrator
 from httpx import AsyncClient, ASGITransport
+from app.core.database import init_db
 from app.main import app
 
 def test_rbac_hierarchy_and_normalization():
@@ -97,6 +98,7 @@ async def test_multi_agent_orchestrator_rbac_enforcement():
 
 @pytest.mark.asyncio
 async def test_endpoint_rbac_eval_run():
+    await init_db()
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         # 1. Unauthenticated / Viewer -> 403 Forbidden
