@@ -72,7 +72,18 @@ app.include_router(files_router, prefix=settings.API_V1_PREFIX)
 app.include_router(models_router, prefix=settings.API_V1_PREFIX)
 app.include_router(audit_router, prefix=settings.API_V1_PREFIX)
 
+@app.get("/", tags=["Health"])
+@app.get("/api", tags=["Health"])
+async def root():
+    return {
+        "status": "online",
+        "service": settings.PROJECT_NAME,
+        "version": "1.0.0",
+        "docs": "/docs"
+    }
+
 @app.get("/health", tags=["Health"])
+@app.get("/api/health", tags=["Health"])
 async def health_check():
     """Service health probe endpoint."""
     return {

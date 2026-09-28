@@ -6,8 +6,11 @@ from app.config import settings
 
 # Ensure sqlite data directory exists if using sqlite
 if "sqlite" in settings.DATABASE_URL:
-    db_path = settings.DATABASE_URL.replace("sqlite+aiosqlite:///", "")
-    Path(os.path.dirname(db_path) or ".").mkdir(parents=True, exist_ok=True)
+    db_path = settings.DATABASE_URL.split("sqlite+aiosqlite:///")[-1]
+    try:
+        Path(os.path.dirname(db_path) or ".").mkdir(parents=True, exist_ok=True)
+    except OSError:
+        pass
 
 engine = create_async_engine(
     settings.DATABASE_URL,

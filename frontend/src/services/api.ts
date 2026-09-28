@@ -1,7 +1,12 @@
 import { User, ConversationSummary, AnalyticsSummary, ChatMessage, EvalBenchmarkReport } from '../types';
 
-const API_BASE = 'http://localhost:8000/api/v1';
-export const WS_BASE = 'ws://localhost:8000/api/v1/chat/ws';
+const isProduction = import.meta.env.PROD;
+export const API_BASE = import.meta.env.VITE_API_BASE || (isProduction ? '/api/v1' : 'http://localhost:8000/api/v1');
+
+const isHttps = typeof window !== 'undefined' && window.location.protocol === 'https:';
+const wsProtocol = isHttps ? 'wss:' : 'ws:';
+const defaultWsHost = typeof window !== 'undefined' ? window.location.host : 'localhost:8000';
+export const WS_BASE = import.meta.env.VITE_WS_BASE || (isProduction ? `${wsProtocol}//${defaultWsHost}/api/v1/chat/ws` : 'ws://localhost:8000/api/v1/chat/ws');
 
 export const getAuthToken = (): string | null => {
   return localStorage.getItem('nexus_token');

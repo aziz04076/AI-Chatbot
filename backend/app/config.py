@@ -13,8 +13,13 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 24 hours
 
-    # Database
-    DATABASE_URL: str = f"sqlite+aiosqlite:///{Path(__file__).resolve().parent.parent.as_posix()}/data/nexus.db"
+    # Database (auto-detect serverless read-only filesystem on Vercel)
+    DATABASE_URL: str = Field(
+        default_factory=lambda: os.environ.get(
+            "DATABASE_URL",
+            f"sqlite+aiosqlite:///{('/tmp' if os.environ.get('VERCEL') else Path(__file__).resolve().parent.parent.as_posix() + '/data')}/nexus.db"
+        )
+    )
 
     # Redis (with in-memory fallback)
     REDIS_URL: str = "redis://localhost:6379/0"
@@ -33,8 +38,10 @@ class Settings(BaseSettings):
         "gpt-4o-mini"
     ]
 
-    # RAG Settings
-    CHROMA_PERSIST_DIRECTORY: str = str(Path(__file__).resolve().parent.parent / "data" / "chromadb")
+    # RAG Settings (use /tmp on Vercel for ChromaDB persistent cache)
+    CHROMA_PERSIST_DIRECTORY: str = Field(
+        default_factory=lambda: "/tmp/chromadb" if os.environ.get("VERCEL") else str(Path(__file__).resolve().parent.parent / "data" / "chromadb")
+    )
     KNOWLEDGE_BASE_DIR: str = str(Path(__file__).resolve().parent.parent / "data" / "knowledge_base")
     RAG_TOP_K: int = 4
     SIMILARITY_THRESHOLD: float = 0.65
