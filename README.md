@@ -6,39 +6,75 @@
 
 ## 🏗️ Architecture Overview
 
-```
-                      +------------------------------------------+
-                      |           React + Three.js UI            |
-                      |  - 3D Particle Neural Canvas             |
-                      |  - Reactive Orb (Idle/Think/Speak)       |
-                      |  - Command Palette & Analytics Dashboard |
-                      +--------------------+---------------------+
-                                           |  WebSocket / REST
-                                           v
-                      +--------------------+---------------------+
-                      |           FastAPI Gateway                |
-                      |  - JWT Auth & User Session Memory        |
-                      |  - Guardrails (PII / Injections)         |
-                      |  - Rate Limiter (Token Bucket)           |
-                      +----+----------------+---------------+----+
-                           |                |               |
-             +-------------+                |               +-------------+
-             v                              v                             v
-+-------------------------+    +-------------------------+   +-------------------------+
-|   Agent Tool Runner     |    |   RAG Vector Engine     |   |   Streaming LLM Engine  |
-| - Math & VRAM Sizer     |    | - Cosine Similarity     |   | - vLLM / PEFT LoRA      |
-| - Live Web Search (DDG) |    | - Chunking & Citations  |   | - Llama-3-8B / Mistral  |
-| - Diagnostics           |    | - Knowledge Base Corpus |   | - Auto Follow-Ups       |
-+-------------------------+    +-------------------------+   +-------------------------+
-             |                              |                             |
-             +------------------------------+-----------------------------+
-                                           |
-                                           v
-                      +--------------------+---------------------+
-                      |      PostgreSQL / Async SQLite / Redis   |
-                      |  - Persistent Sessions & Message History |
-                      |  - Telemetry Logs & Feedback Ratings     |
-                      +------------------------------------------+
+> 📖 **Deep-Dive Documentation**: For detailed sequence diagrams, cryptographic audit chains, and threat models, read the complete [**System Architecture Guide (ARCHITECTURE.md)**](ARCHITECTURE.md).
+
+```mermaid
+flowchart TD
+    subgraph Client ["Client Presentation Layer (Browser / WebGL)"]
+        User["User Interface"]
+        WebGL["Three.js GLSL Custom Shader Neural Canvas"]
+        ReactUI["React 18 + Tailwind CSS + Framer Motion"]
+        Bento["Bento-Grid Analytics & Telemetry Waterfall"]
+        User --> ReactUI
+        ReactUI --> WebGL
+        ReactUI --> Bento
+    end
+
+    subgraph Edge ["Edge Ingress & Reverse Proxy (Vercel / NGINX)"]
+        Router{"Reverse Proxy Routing Layer (vercel.json)"}
+        ReactUI -->|"HTTPS / WSS / SSE"| Router
+        Router -->|"/(.*) Static SPA Assets"| ViteService["Frontend Service (Vite React Build)"]
+        Router -->|"/api/(.*) REST & WebSockets"| BackendService["Backend Service (Python FastAPI ASGI)"]
+    end
+
+    subgraph Backend ["NexusAI Core Backend (Python FastAPI)"]
+        API["FastAPI Gateway (backend/main.py)"]
+        BackendService --> API
+
+        subgraph SecurityPipeline ["Security, RBAC & Telemetry Pipeline"]
+            CORS["CORS Handler"]
+            Auth["JWT & RBAC Verifier (Admin / Operator / Viewer)"]
+            RateLimit["Rate Limiter (Token Bucket 60 req/min)"]
+            OTel["OpenTelemetry Distributed Tracing & W3C Headers"]
+            Guardrails["Content Guardrails & PII Masker"]
+            API --> CORS --> Auth --> RateLimit --> OTel --> Guardrails
+        end
+
+        subgraph IntelligenceCore ["Intelligence & Orchestration Core"]
+            Orchestrator["Multi-Agent Orchestrator"]
+            RAG["Hybrid RAG Pipeline (BM25 + Dense Cosine + RRF)"]
+            CircuitBreaker["Circuit Breaker (Closed / Open / Half-Open)"]
+            Inference["LLM Inference Engine (vLLM / PEFT LoRA)"]
+            Guardrails --> Orchestrator
+            Guardrails --> RAG
+            Orchestrator --> CircuitBreaker --> Inference
+        end
+
+        subgraph SpecializedAgents ["Specialized Domain Sub-Agents"]
+            Planner["Planner Agent (Step Decomposition)"]
+            Researcher["Research Agent (Vector & Web Search)"]
+            Architect["Code Architect Agent (Design & System Specs)"]
+            Calculator["Infra & VRAM Sizing Agent (Structured Output)"]
+            Orchestrator --> Planner
+            Planner --> Researcher
+            Planner --> Architect
+            Planner --> Calculator
+        end
+    end
+
+    subgraph DataLayer ["Persistence, Cryptography & Cache Layer"]
+        DB[("Database (PostgreSQL / SQLite @ /tmp)")]
+        AuditLedger[("Tamper-Evident SHA-256 Audit Chain Ledger")]
+        EncryptedData["AES-256-GCM Column-Level Encryption at Rest"]
+        Cache[("Redis Cache / In-Memory Fallback")]
+        VectorStore[("ChromaDB Vector Store @ /tmp")]
+
+        API --> DB
+        DB --> AuditLedger
+        DB --> EncryptedData
+        API --> Cache
+        RAG --> VectorStore
+    end
 ```
 
 ---
@@ -129,6 +165,19 @@ python training/merge_lora.py --base_model meta-llama/Meta-Llama-3-8B-Instruct -
 
 ---
 
+## ☁️ Cloud Multi-Service Deployment (Vercel)
+
+NexusAI includes native support for zero-config multi-service monorepo deployments on **Vercel** via [`vercel.json`](vercel.json):
+
+1. **Connect Repository**: Import `aziz04076/AI-Chatbot` directly into your Vercel Dashboard.
+2. **Multi-Service Detection**: Vercel automatically detects the dual microservices:
+   - `frontend` (Vite / React 18 SPA)
+   - `backend` (Python 3.10+ ASGI serverless function with `main:app` entrypoint)
+3. **Automatic Routing**: Rewrites automatically map `/api/(.*)` to the Python backend and `/(.*)` to the React frontend.
+4. **Serverless Ephemeral Storage**: When deployed on Vercel, the backend automatically directs SQLite and vector caching to the serverless `/tmp` volume (`/tmp/nexus.db`).
+
+---
+
 ## 🐳 Docker & Multi-Container Deployment
 
 Run the complete multi-tier stack (Frontend + Backend + Redis + PostgreSQL):
@@ -166,7 +215,7 @@ kubectl apply -f deployment/kubernetes/ingress.yaml
 
 ## 🧪 Verification & Automated Testing
 
-Run the full automated test suite verifying auth, WebSocket chat, RAG vector retrieval, and agentic tools:
+Run the full automated test suite verifying multi-agent orchestration, hybrid RAG, RBAC, tamper-evident audit ledger, AES-256-GCM encryption, circuit breakers, and OpenTelemetry tracing:
 
 ```bash
 $env:PYTHONPATH="backend"
@@ -174,12 +223,15 @@ python -m pytest backend/tests -v
 ```
 Output:
 ```
-backend/tests/test_agent.py::test_calculator_tool PASSED                 [ 20%]
-backend/tests/test_agent.py::test_agent_tool_detection PASSED            [ 40%]
-backend/tests/test_auth.py::test_auth_workflow PASSED                    [ 60%]
-backend/tests/test_chat.py::test_chat_endpoints PASSED                   [ 80%]
-backend/tests/test_rag.py::test_rag_pipeline_indexing_and_retrieval PASSED [100%]
-============================= 5 passed in 12.56s ==============================
+backend/tests/test_agent.py::test_calculator_tool PASSED                 [  1%]
+backend/tests/test_agent.py::test_agent_tool_detection PASSED            [  3%]
+backend/tests/test_audit.py::test_audit_ledger_chain_and_verification PASSED [  7%]
+backend/tests/test_circuit_breaker.py::test_circuit_breaker_closed_success PASSED [ 16%]
+backend/tests/test_encryption.py::test_column_level_encryption_at_rest_in_sqlite PASSED [ 37%]
+backend/tests/test_hybrid_rag.py::test_hybrid_rag_pipeline PASSED        [ 48%]
+backend/tests/test_multi_agent.py::test_orchestrator_streaming_events PASSED [ 61%]
+backend/tests/test_telemetry.py::test_http_chat_distributed_tracing PASSED [100%]
+============================= 54 passed in 35.01s =============================
 ```
 
 Verify frontend build:
@@ -189,6 +241,7 @@ npm run build
 ```
 Output:
 ```
-✓ 1505 modules transformed.
-✓ built in 19s
+✓ 1912 modules transformed.
+✓ built in 16.66s
 ```
+
